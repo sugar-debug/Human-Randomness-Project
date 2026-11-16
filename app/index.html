@@ -1,0 +1,185 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Human or Computer Detector</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow working column. Inputs on top, verdict gauge, then the feature breakdown table. Colors follow the project figures: orange = human, blue = computer. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --fg:#17202B; --muted:#5B6877; --line:#DCE1E8;
+  --human:#D2551F; --computer:#2A74CC; --ctl:#17202B; --ctl-fg:#FFFFFF; --warn:#9A6700; --warn-bg:#FFF4D6; --band:#17202B; --band-fg:#FFFFFF; --band-sub:#9AA7B6;
+  --font-head:'Space Grotesk',system-ui,sans-serif; --font-body:'Inter',system-ui,sans-serif; --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F141A; --surface:#171E26; --fg:#E7ECF2; --muted:#99A5B3; --line:#2A3440;
+  --human:#F0804A; --computer:#5AA2F0; --ctl:#E7ECF2; --ctl-fg:#0F141A; --warn:#F2C14E; --warn-bg:#352B10; --band:#0A0E13; --band-fg:#E7ECF2; --band-sub:#8896A6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F141A; --surface:#171E26; --fg:#E7ECF2; --muted:#99A5B3; --line:#2A3440;
+  --human:#F0804A; --computer:#5AA2F0; --ctl:#E7ECF2; --ctl-fg:#0F141A; --warn:#F2C14E; --warn-bg:#352B10; --band:#0A0E13; --band-fg:#E7ECF2; --band-sub:#8896A6; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 var(--font-body);padding-block:32px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font:600 clamp(28px,5vw,40px)/1.1 var(--font-head);margin:0;text-wrap:balance}
+h2{font:600 18px/1.2 var(--font-head);margin:0}
+p{margin:0}
+.lede{color:var(--muted);max-width:62ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+label{font:500 13px/1 var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.count{font:400 13px var(--font-mono);color:var(--muted)}
+textarea{width:100%;resize:vertical;min-height:64px;font:400 17px/1.5 var(--font-mono);letter-spacing:.06em;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+textarea:focus-visible,button:focus-visible{outline:2px solid var(--computer);outline-offset:2px}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+button{font:500 15px var(--font-body);padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+button.primary{background:var(--ctl);color:var(--ctl-fg);border-color:var(--ctl)}
+button:hover{border-color:var(--muted)}
+.note{font-size:14px;color:var(--muted)}
+.tag{display:inline-block;font:500 12px var(--font-body);padding:2px 8px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
+#msg{font-size:14px;color:var(--warn)}
+.verdict{font:600 clamp(26px,5vw,36px)/1.1 var(--font-head)}
+.gauge{position:relative;border-radius:99px}
+.ends{display:flex;justify-content:space-between;font:500 13px var(--font-body);color:var(--muted)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+th{font:500 12px var(--font-body);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.m{font-family:var(--font-mono);font-size:13px}
+.out{color:var(--human);font-weight:600}
+.pull{position:relative;height:10px;width:120px;background:var(--bg);border-radius:3px}
+.pull::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--muted)}
+.pull b{position:absolute;top:0;height:10px;border-radius:2px}
+details summary{cursor:pointer;font-weight:500}
+details p{margin-top:8px;color:var(--muted);font-size:14px}
+
+.badge{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;font:600 12px var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--computer);border:1px solid var(--computer);border-radius:99px;padding:5px 12px}
+.badge::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--human)}
+.pad0{padding:0;overflow:hidden;position:relative;gap:0}
+.band{background:var(--band);color:var(--band-fg);padding:18px 20px;border-bottom:4px solid var(--computer);transition:border-color .3s}
+.band h2{font-size:20px}.band p{font-size:14px;color:var(--band-sub);margin-top:4px}
+.body{padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.pct{font:600 clamp(56px,12vw,84px)/1 var(--font-head);font-variant-numeric:tabular-nums}
+.gauge{height:22px;overflow:hidden;background:var(--line)}
+#fill{height:100%;width:0;background:linear-gradient(90deg,var(--computer),var(--human));transition:width 1s cubic-bezier(.4,0,.2,1)}
+.mid{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--fg);opacity:.45}
+.load{position:absolute;inset:0;z-index:2;background:color-mix(in srgb,var(--surface) 92%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-weight:500;color:var(--muted)}
+.spin{width:34px;height:34px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--computer);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}#fill{transition:none}}
+
+</style>
+
+<main>
+<header style="display:flex;flex-direction:column;gap:14px;padding-top:8px">
+  <span class="badge">ML simulation · FDS project</span>
+  <h1>Are humans random?</h1>
+  <p class="lede">Can a model tell whether your sequence came from a person or a computer? Enter 20 digits and 20 coin flips. The classifier was trained on our 64 student responses and simulated computer sequences.</p>
+</header>
+
+<section class="card pad0" aria-label="Input">
+  <div class="band"><h2>Sequence input</h2><p>Exactly 20 digits and 20 flips</p></div>
+  <div class="body">
+  <div class="field">
+    <div class="row"><label for="dig">20 digits (0 to 9)</label><span class="count" id="dc">0 / 20</span></div>
+    <textarea id="dig" rows="2" spellcheck="false" autocomplete="off" aria-describedby="msg"></textarea>
+  </div>
+  <div class="field">
+    <div class="row"><label for="flp">20 coin flips (H or T)</label><span class="count" id="fc">0 / 20</span></div>
+    <textarea id="flp" rows="2" spellcheck="false" autocomplete="off" aria-describedby="msg"></textarea>
+  </div>
+  <p id="msg" role="status"></p>
+  <div class="btns">
+    <button class="primary" id="go">Analyze sequence</button>
+    <button id="comp">Generate computer sample</button>
+    <button id="ex">Load human-style example</button>
+    <button id="clr">Clear</button>
+  </div>
+  <p class="note"><span class="tag">Example loaded</span> The boxes start with a hand-written example, not a real response. Spaces and commas are ignored.</p>
+  </div>
+</section>
+
+<section class="card pad0" id="res" aria-live="polite" hidden>
+  <div class="load" id="ld" hidden><span class="spin"></span><span>Scoring 12 features…</span></div>
+  <div class="band" id="band"><h2>Prediction result</h2><p>Logistic regression, 12 sequence features</p></div>
+  <div class="body">
+    <div style="text-align:center;display:flex;flex-direction:column;gap:6px">
+      <span class="count" style="text-transform:uppercase;letter-spacing:.08em">Human score</span>
+      <div class="pct" id="pct">--</div>
+      <div class="verdict" id="vd"></div>
+    </div>
+    <div><div class="ends" style="margin-bottom:8px"><span>Computer (0%)</span><span>Human (100%)</span></div><div class="gauge"><div id="fill"></div><span class="mid"></span></div></div>
+    <p class="note" id="why" style="text-align:center"></p>
+  </div>
+</section>
+
+<section class="card" id="fe" hidden>
+  <h2>Why: the 12 features</h2>
+  <p class="note">Orange values fall outside the range that 95% of computer sequences stay inside. The bar shows which way each feature pushed the score.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Feature</th><th class="n">Yours</th><th class="n">Computer 95% range</th><th class="n">Human median</th><th>Pushes toward</th></tr></thead>
+    <tbody id="tb"></tbody>
+  </table></div>
+</section>
+
+<details class="card">
+  <summary>How reliable is this?</summary>
+  <p>The model is a logistic regression on 12 summary features (digit entropy, chi-square, repeats, runs, coin balance and so on). Across repeated cross-validation it was right about <span id="acc"></span> of the time on whole datasets, where guessing gives 50%. A single sequence pair is a lean, not proof: a careful human can look like a computer and a computer can look like a human. It was trained on one student sample, and it only accepts exactly 20 digits and 20 flips because several features depend on length.</p>
+</details>
+</main>
+
+<script>
+const M={"cols": ["digit_entropy", "digit_runs", "digit_chi2", "digit_autocorr", "adj_repeat_rate", "diff1_rate", "distinct_digits", "binary_entropy", "binary_runs", "binary_balance_dev", "switch_rate", "longest_run"], "mean": [2.950131850935789, 18.12797619047619, 8.953673245614036, -0.057801202389000564, 0.09848840852130325, 0.18143448900027848, 8.794642857142858, 0.9601266317133594, 10.470982142857142, 0.08952850877192983, 0.4984879734057366, 4.694196428571429], "scale": [0.1816519395374284, 1.4870442717349655, 4.769911567437886, 0.23395879839978073, 0.07830160126484183, 0.09987729080977717, 0.9343484442680485, 0.07530512852573204, 2.3652475682695315, 0.07187464752565607, 0.12447205445336475, 1.7914551506119016], "coef": [5.756728320485777, -1.857181287213859, 3.5423460201320207, -0.059027236622414464, -2.0221399335670722, 0.5561628986478765, -2.1115043408546734, -1.434374681982334, -0.18661131274822412, -1.7720843789512726, 0.41583695283699634, -0.2472924567182795], "intercept": -1.0585934709741092, "cv_acc": 0.7024564102564101, "comp_lo": [2.5709505944546684, 15.0, 3.0, -0.49226499473093704, 0.0, 0.0, 7.0, 0.8112781244591328, 6.0, 0.0, 0.2631578947368421, 3.0], "comp_hi": [3.208694969562842, 20.0, 18.0, 0.38414005939448703, 0.2631578947368421, 0.3684210526315789, 10.0, 1.0, 15.0, 0.25, 0.7368421052631579, 8.0], "comp_med": [2.965957320949175, 18.0, 8.0, -0.05367866560600602, 0.10526315789473684, 0.15789473684210525, 9.0, 0.9709505944546686, 11.0, 0.09999999999999998, 0.5263157894736842, 4.0], "hum_med": [3.1086949695628423, 20.0, 5.0, -0.02068942807667324, 0.0, 0.21052631578947367, 10.0, 0.9927744539878083, 12.0, 0.04999999999999999, 0.5789473684210527, 4.0]};
+const LABEL={digit_entropy:"Digit entropy (bits)",digit_runs:"Digit runs",digit_chi2:"Digit chi-square",digit_autocorr:"Digit autocorrelation",adj_repeat_rate:"Adjacent repeat rate",diff1_rate:"Steps of size 1",distinct_digits:"Distinct digits",binary_entropy:"Coin entropy (bits)",binary_runs:"Coin runs",binary_balance_dev:"Coin imbalance",switch_rate:"Coin switch rate",longest_run:"Longest coin run"};
+const $=id=>document.getElementById(id);
+function ent(c){const n=c.reduce((a,b)=>a+b,0);let h=0;for(const k of c)if(k>0){const p=k/n;h-=p*Math.log2(p)}return h}
+function runs(x){let r=1;for(let i=1;i<x.length;i++)if(x[i]!==x[i-1])r++;return r}
+function longest(x){let b=1,c=1;for(let i=1;i<x.length;i++){c=x[i]===x[i-1]?c+1:1;if(c>b)b=c}return b}
+function acf(x){const a=x.slice(0,-1),b=x.slice(1),m=v=>v.reduce((s,t)=>s+t,0)/v.length,ma=m(a),mb=m(b);
+  let sa=0,sb=0,sab=0;for(let i=0;i<a.length;i++){sa+=(a[i]-ma)**2;sb+=(b[i]-mb)**2;sab+=(a[i]-ma)*(b[i]-mb)}
+  return(sa===0||sb===0)?0:sab/Math.sqrt(sa*sb)}
+function features(d,b){
+  const n=d.length,c=Array(10).fill(0);d.forEach(v=>c[v]++);const e=n/10;
+  let chi=0;c.forEach(k=>chi+=(k-e)**2/e);
+  let rep=0,d1=0;for(let i=1;i<n;i++){if(d[i]===d[i-1])rep++;if(Math.abs(d[i]-d[i-1])===1)d1++}
+  const nb=b.length,h=b.reduce((s,v)=>s+v,0);let sw=0;for(let i=1;i<nb;i++)if(b[i]!==b[i-1])sw++;
+  return{digit_entropy:ent(c),digit_runs:runs(d),digit_chi2:chi,digit_autocorr:acf(d),adj_repeat_rate:rep/(n-1),diff1_rate:d1/(n-1),distinct_digits:c.filter(k=>k>0).length,
+    binary_entropy:ent([nb-h,h]),binary_runs:runs(b),binary_balance_dev:Math.abs(h/nb-0.5),switch_rate:sw/(nb-1),longest_run:longest(b)}}
+function score(f){let z=M.intercept;const parts=M.cols.map((k,i)=>{const t=M.coef[i]*(f[k]-M.mean[i])/M.scale[i];z+=t;return t});return{p:1/(1+Math.exp(-z)),parts}}
+const parseD=s=>(s.match(/\d/g)||[]).map(Number);
+const parseF=s=>(s.toUpperCase().match(/[HT]/g)||[]).map(c=>c==="H"?1:0);
+const fmt=(k,v)=>Number.isInteger(v)?String(v):Math.abs(v)<.1&&k!=="digit_autocorr"?v.toFixed(3):v.toFixed(2);
+function counts(){$("dc").textContent=parseD($("dig").value).length+" / 20";$("fc").textContent=parseF($("flp").value).length+" / 20"}
+function show(f,s){
+  const p=s.p,hum=p>=.5,conf=Math.abs(p-.5)*2,col=hum?"var(--human)":"var(--computer)";
+  $("ld").hidden=true;$("fe").hidden=false;
+  $("pct").textContent=Math.round(p*100)+"%";$("pct").style.color=col;
+  $("vd").textContent=hum?"Likely human-generated":"Likely computer-generated";$("vd").style.color=col;
+  $("band").style.borderBottomColor=col;$("fill").style.width=(p*100)+"%";
+  $("why").textContent=conf<.3?"This is close to the line, so treat it as undecided.":conf<.7?"A moderate lean. Check the feature table for what drove it.":"A strong lean, but the model is about "+Math.round(M.cv_acc*100)+"% accurate overall.";
+  const tb=$("tb");tb.textContent="";const mx=Math.max(...s.parts.map(Math.abs),1e-6);
+  M.cols.forEach((k,i)=>{const v=f[k],lo=M.comp_lo[i],hi=M.comp_hi[i],out=v<lo-1e-9||v>hi+1e-9,t=s.parts[i];
+    const tr=document.createElement("tr"),w=Math.min(50,Math.abs(t)/mx*50);
+    tr.innerHTML=`<td>${LABEL[k]}</td><td class="n m ${out?"out":""}">${fmt(k,v)}</td><td class="n m">${fmt(k,lo)} to ${fmt(k,hi)}</td><td class="n m">${fmt(k,M.hum_med[i])}</td><td><div class="pull" title="${t>=0?"human":"computer"} ${Math.abs(t).toFixed(2)}"><b style="${t>=0?"left:50%":"right:50%"};width:${w}%;background:${t>=0?"var(--human)":"var(--computer)"}"></b></div></td>`;
+    tb.appendChild(tr)})}
+let timer=0;
+function run(){
+  const d=parseD($("dig").value),b=parseF($("flp").value),msg=$("msg");
+  clearTimeout(timer);
+  if(d.length!==20||b.length!==20){msg.textContent="Enter exactly 20 digits and 20 flips. You have "+d.length+" digits and "+b.length+" flips.";$("res").hidden=true;$("fe").hidden=true;return}
+  msg.textContent="";const f=features(d,b),s=score(f);
+  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("res").hidden=false;$("fe").hidden=true;$("fill").style.width="0%";$("pct").textContent="--";$("vd").textContent="";$("why").textContent="";
+  if(still){show(f,s);return}
+  $("ld").hidden=false;timer=setTimeout(()=>show(f,s),700)}
+function rnd(n,m){const a=new Uint32Array(n);crypto.getRandomValues(a);return Array.from(a,v=>v%m)}
+$("go").onclick=run;
+$("comp").onclick=()=>{$("dig").value=rnd(20,10).join(" ");$("flp").value=rnd(20,2).map(v=>v?"H":"T").join(" ");counts();run()};
+$("ex").onclick=()=>{$("dig").value="3 7 1 9 4 0 8 2 6 5 7 3 1 8 4 9 0 2 6 5";$("flp").value="H T H H T H T T H T H T T H H T H T H T";counts();run()};
+$("clr").onclick=()=>{clearTimeout(timer);$("dig").value="";$("flp").value="";counts();$("msg").textContent="";$("res").hidden=true;$("fe").hidden=true};
+["dig","flp"].forEach(i=>$(i).addEventListener("input",counts));
+$("acc").textContent=Math.round(M.cv_acc*100)+"%";
+$("ex").click();
+</script>
+
+</body></html>

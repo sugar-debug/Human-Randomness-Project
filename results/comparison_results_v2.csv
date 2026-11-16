@@ -1,0 +1,7 @@
+metric,human_mean,computer_mean,computer_95pct_range,p_value,significant
+d_entropy,3.043,2.946,2.91 to 2.99,0.0001,YES
+d_repeats,1.641,1.9,1.58 to 2.23,0.1158,no
+d_distinct,9.172,8.782,8.56 to 9.00,0.0008,YES
+b_runs,10.828,10.494,9.95 to 11.02,0.2299,no
+b_longest,5.125,4.657,4.30 to 5.06,0.0186,YES
+b_imbalance,3.016,3.525,2.89 to 4.20,0.1435,no

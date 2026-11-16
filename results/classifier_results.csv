@@ -1,0 +1,7 @@
+feature_set,model,accuracy,precision,recall,f1,auc
+Coin flips only,Logistic Regression,0.636,0.633,0.658,0.644,0.695
+Coin flips only,Random Forest,0.685,0.697,0.661,0.678,0.734
+Digits + coin flips,Logistic Regression,0.741,0.738,0.747,0.742,0.803
+Digits + coin flips,Random Forest,0.782,0.793,0.765,0.778,0.866
+Digits only,Logistic Regression,0.713,0.714,0.712,0.713,0.771
+Digits only,Random Forest,0.757,0.769,0.736,0.751,0.828

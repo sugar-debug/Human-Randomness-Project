@@ -1,0 +1,20 @@
+# Raw survey data contains student names: never commit it
+data/raw/*
+!data/raw/README.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Generated
+results/model_params.json
+data/processed/computer_features_seed42.csv
